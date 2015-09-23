@@ -29,4 +29,22 @@ jQuery(document).ready(function(){
             }
         });
     });
+
+    // Ajax call to clear the transient
+    jQuery('input[type="button"][name="wp-github-clear"]').on('click',function(){
+        jQuery('span#msg').html('');
+        var userId = jQuery(this).attr('user');
+        jQuery.ajax({
+            type : "post",
+            url : ajaxurl,
+            data : {action: "wp_social_avatar_github_clear_cache", user_id : userId},
+            success: function(response) {
+                if(response) {
+                    jQuery('span#msg').html('<strong> Cache Cleared</strong>');
+                } else {
+                    jQuery('span#msg').html('<strong> Try Again</strong>');
+                }
+            }
+        });
+    });
 });

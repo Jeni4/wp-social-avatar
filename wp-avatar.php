@@ -81,6 +81,7 @@ function wp_avatar_add_extra_profile_fields( $profileuser ) {
 	$wp_avatar_profile = get_user_meta( $profileuser->ID, 'wp_avatar_profile', true );
 	$wp_fb_profile     = get_user_meta( $profileuser->ID, 'wp_fb_profile', true );
 	$wp_gplus_profile  = get_user_meta( $profileuser->ID, 'wp_gplus_profile', true );
+	$wp_github_profile  = get_user_meta( $profileuser->ID, 'wp_github_profile', true );
 
 	// WP Avatar section html in the user profile page.
 	$html  = '';
@@ -96,6 +97,12 @@ function wp_avatar_add_extra_profile_fields( $profileuser ) {
 	$html .= '<td><input type="checkbox" name="wp-avatar-profile" value="wp-gplus"' . checked( $wp_avatar_profile, 'wp-gplus', false ) . '></td></tr>';
 	$html .= '<tr><th><label for="gplus-clear-cache">Clear Google+ Cache</label></th>';
 	$html .= '<td><input type="button" name="wp-gplus-clear" value="Clear Cache" user="' . $profileuser->ID . '"><span id="msg"></span></td></tr>';
+	$html .= '<tr><th><label for="github-profile">GitHub username</label></th>';
+	$html .= '<td><input type="text" name="github-profile" id="github-profile" value="' . $wp_github_profile . '" class="regular-text" /></td></tr>';
+	$html .= '<tr><th><label for="use-github-profile">Use GitHub Profile as Avatar</label></th>';
+	$html .= '<td><input type="checkbox" name="wp-avatar-profile" value="wp-github"' . checked( $wp_avatar_profile, 'wp-github', false ) . '></td></tr>';
+	$html .= '<tr><th><label for="github-clear-cache">Clear GitHub Cache</label></th>';
+	$html .= '<td><input type="button" name="wp-github-clear" value="Clear Cache" user="' . $profileuser->ID . '"><span id="msg"></span></td></tr>';
 	$html .= '</table>';
 
 	echo $html;
@@ -114,6 +121,7 @@ function wp_avatar_save_extra_profile_fields( $user_id ) {
 	// Saving the WP Avatar details.
 	update_usermeta( $user_id, 'wp_fb_profile', trim( $_POST['fb-profile'] ) );
 	update_usermeta( $user_id, 'wp_gplus_profile', trim( $_POST['gplus-profile'] ) );
+	update_usermeta( $user_id, 'wp_github_profile', trim( $_POST['github-profile'] ) );
 	update_usermeta( $user_id, 'wp_avatar_profile', $_POST['wp-avatar-profile'] );
 }
 add_action( 'personal_options_update', 'wp_avatar_save_extra_profile_fields' );
@@ -264,3 +272,97 @@ function wp_social_avatar_gplus_clear_cache() {
 }
 add_action( 'wp_ajax_wp_social_avatar_gplus_clear_cache', 'wp_social_avatar_gplus_clear_cache' );
 add_action( 'wp_ajax_nopriv_wp_social_avatar_gplus_clear_cache', 'wp_social_avatar_gplus_clear_cache' );
+
+/**
+ * Replaces the default engravatar with the GitHub profile picture
+ *
+ * @param string $avatar The default avatar
+ *
+ * @param int $id_or_email The user id
+ *
+ * @param int $size The size of the avatar
+ *
+ * @param string $default The url of the Wordpress default avatar
+ *
+ * @param string $alt Alternate text for the avatar.
+ *
+ * @return string $avatar The modified avatar
+ */
+function wp_github_avatar( $avatar, $id_or_email, $size, $default, $alt ){
+	// Getting the user id.
+	if ( is_int( $id_or_email ) )
+		$user_id = $id_or_email;
+
+	if ( is_object( $id_or_email ) )
+		$user_id = $id_or_email->user_id;
+
+	if ( is_string( $id_or_email ) ) {
+		$user = get_user_by( 'email', $id_or_email );
+		if ( $user )
+			$user_id = $user->ID;
+		else
+			$user_id = $id_or_email;
+	}
+
+	// Getting the user details
+	$wp_avatar_profile    = get_user_meta( $user_id, 'wp_avatar_profile', true );
+	$wp_github_profile    = get_user_meta( $user_id, 'wp_github_profile', true );
+	$wp_avatar_capability = get_option( 'wp_avatar_capability', 'read' );
+
+	if ( user_can( $user_id, $wp_avatar_capability ) ) {
+		if ( 'wp-github' == $wp_avatar_profile && ! empty( $wp_github_profile ) ) {
+			if ( false === ( $github = get_transient( "wp_social_avatar_github_{$user_id}" ) ) ) {
+				$url = 'https://api.github.com/users/' . $wp_github_profile;
+				// Fetching the GitHub profile image.
+				$results = wp_remote_get( $url, array( 'timeout' => -1 ) );
+
+				// Checking for WP Errors
+				if ( ! is_wp_error( $results ) ) {
+					if ( 200 == $results['response']['code'] ) {
+						$githubdetails = json_decode( $results['body'] );
+						$github        = $githubdetails->avatar_url;
+
+						// Setting GitHub url for 168 Hours (ie. 7 Days)
+						set_transient( "wp_social_avatar_github_{$user_id}", $github, 168 * HOUR_IN_SECONDS );
+
+						// Replacing it with the required size
+						$github = str_replace( 'sz=50', "sz={$size}", $github );
+
+						$avatar = "<img alt='github-profile-picture' src='{$github}' class='avatar avatar-{$size} photo' height='{$size}' width='{$size}' />";
+					}
+				}
+			} else {
+				// Replacing GitHub url with the required size
+				$github = str_replace( 'sz=50', "sz={$size}", $github );
+
+				$avatar = "<img alt='github-profile-picture' src='{$github}' class='avatar avatar-{$size} photo' height='{$size}' width='{$size}' />";
+			}
+			return $avatar;
+		} else {
+			return $avatar;
+		}
+	} else {
+		return $avatar;
+	}
+}
+add_filter( 'get_avatar', 'wp_github_avatar', 10, 5 );
+
+/**
+ * Deletes the transient for a GitHub for the respective user
+ *
+ * @param void
+ *
+ * @return boolean $delete_transient True if the transients gets deleted
+ */
+function wp_social_avatar_github_clear_cache() {
+	// Fetch the current user id
+	$user_id = sanitize_text_field( $_POST['user_id'] );
+
+	// Delete transient for the particular user
+	$delete_transient = delete_transient( "wp_social_avatar_github_{$user_id}" );
+
+	echo $delete_transient;
+	die();
+}
+add_action( 'wp_ajax_wp_social_avatar_github_clear_cache', 'wp_social_avatar_github_clear_cache' );
+add_action( 'wp_ajax_nopriv_wp_social_avatar_github_clear_cache', 'wp_social_avatar_github_clear_cache' );
