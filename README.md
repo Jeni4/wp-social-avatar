@@ -2,8 +2,8 @@
 * Contributors: [marutim](https://profiles.wordpress.org/marutim)
 * Tags: social avatar, avatar, gravatar, social
 * Requires at least: 3.3.1
-* Tested up to: 4.3.1
-* Stable tag: 1.5
+* Tested up to: 4.1
+* Stable tag: 1.4.2
 * License: GPLv2 or later
 * License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -24,7 +24,7 @@ After activating the plugin admin will see **WP Avatar**, under Users menu. Here
 
 The allowed users will see the available options in their **Your Profile** sub menu under Users menu.
 
-For the first version I only have two social options available, Facebook and Google plus. You need to add either the Facebook user ID(numeric) or Google plus id in the corresponding fields. [You can find your facebook user id here](http://findmyfacebookid.com/).
+For the first version I only have two social options available, Facebook and Google plus. You need to add either the Facebook handle or Google plus id in the corresponding fields.
 
 Once done with the above, check the social profile picture you want to use as the gravatar and click Update Profile and you are done.
 
@@ -43,9 +43,10 @@ With Version 1.4 Cache functionality is implemented for Google Plus avatar, this
 No FAQS yet
 
 ### Changelog
-#### 1.5
-* Made changes due to change in Facebook APIs. Now you need to use facebook user id instead of facebook handle/username.
+#### 1.4.2
+* Fixed invalid url format for getting facebook profile picture
 
+### Changelog
 #### 1.4.1 
 * Introduced wp_social_avatar_heading filter
 
